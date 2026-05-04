@@ -4,8 +4,10 @@ import 'package:openhiit/core/models/timer_type.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
-List<IntervalType> generateIntervalsFromTimer(TimerType timer,
-    {bool singleIteration = false}) {
+List<IntervalType> generateIntervalsFromTimer(
+  TimerType timer, {
+  bool singleIteration = false,
+}) {
   List<IntervalType> intervals = [];
   int idx = 0;
 
@@ -19,18 +21,20 @@ List<IntervalType> generateIntervalsFromTimer(TimerType timer,
     String endSound = "",
   }) {
     if (time > 0) {
-      intervals.add(IntervalType(
-        id: id,
-        workoutId: timer.id,
-        time: time,
-        name: name,
-        color: timer.color,
-        intervalIndex: idx++,
-        startSound: startSound,
-        countdownSound: countdownSound,
-        halfwaySound: halfwaySound,
-        endSound: endSound,
-      ));
+      intervals.add(
+        IntervalType(
+          id: id,
+          workoutId: timer.id,
+          time: time,
+          name: name,
+          color: timer.color,
+          intervalIndex: idx++,
+          startSound: startSound,
+          countdownSound: countdownSound,
+          halfwaySound: halfwaySound,
+          endSound: endSound,
+        ),
+      );
     }
   }
 
@@ -50,7 +54,8 @@ List<IntervalType> generateIntervalsFromTimer(TimerType timer,
     countdownSound: timer.soundSettings.countdownSound,
   );
 
-  if (timer.timeSettings.warmupTime > 0) {
+  if (timer.timeSettings.warmupTime > 0 &&
+      timer.timeSettings.skipWarmupRest == 0) {
     addInterval(
       id: Uuid().v4(),
       name: "Rest",
@@ -119,10 +124,13 @@ List<IntervalType> generateIntervalsFromTimer(TimerType timer,
 }
 
 Future<List<IntervalDisplayModel>> generateIntervalDisplaysForTimer(
-    TimerType timer,
-    {bool singleIteration = false}) async {
-  List<IntervalType> intervals =
-      generateIntervalsFromTimer(timer, singleIteration: singleIteration);
+  TimerType timer, {
+  bool singleIteration = false,
+}) async {
+  List<IntervalType> intervals = generateIntervalsFromTimer(
+    timer,
+    singleIteration: singleIteration,
+  );
 
   final exclude = ["Rest", "Get Ready", "Warmup", "Cooldown", "Break"];
 
