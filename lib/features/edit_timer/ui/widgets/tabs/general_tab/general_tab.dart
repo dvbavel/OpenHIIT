@@ -85,9 +85,9 @@ class GeneralTab extends StatelessWidget {
                       onMainColorChange: (Color? value) {
                         if (value != null) {
                           Navigator.pop(context); // Close the dialog
-                          provider.setTimerColor(value.value);
+                          provider.setTimerColor(value.toARGB32());
                           onEdited(StartSaveState.save);
-                          Log.debug("Timer color changed to ${value.value}");
+                          Log.debug("Timer color changed to ${value.toARGB32()}");
                         }
                       },
                       allowShades: false,
