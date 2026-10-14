@@ -245,6 +245,8 @@ class _EditTimerState extends State<EditTimer> with TickerProviderStateMixin {
       };
 
   ValueChanged<StartSaveState> get setButtonState => (StartSaveState state) {
+        // The screen can be popped while a save is still awaiting the DB.
+        if (!mounted) return;
         if (buttonState != state) {
           setState(() {
             buttonState = state;
