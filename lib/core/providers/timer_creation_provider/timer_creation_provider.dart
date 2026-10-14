@@ -41,41 +41,31 @@ class TimerCreationProvider extends ChangeNotifier {
   }
 
   void setTimerName(String name) {
-    _timer = _timer.copyWith({
-      'name': name,
-    });
+    _timer = _timer.copyWith({'name': name});
     _isEdited = true;
     notifyListeners();
   }
 
   void setTimerColor(int color) {
-    _timer = _timer.copyWith({
-      'color': color,
-    });
+    _timer = _timer.copyWith({'color': color});
     _isEdited = true;
     notifyListeners();
   }
 
   void setTimerShowMinutes(int showMinutes) {
-    _timer = _timer.copyWith({
-      'showMinutes': showMinutes,
-    });
+    _timer = _timer.copyWith({'showMinutes': showMinutes});
     _isEdited = true;
     notifyListeners();
   }
 
   void setActiveIntervals(int intervals) {
-    _timer = _timer.copyWith({
-      'activeIntervals': intervals,
-    });
+    _timer = _timer.copyWith({'activeIntervals': intervals});
     _isEdited = true;
     notifyListeners();
   }
 
   void setTotalTime(int totalTime) {
-    _timer = _timer.copyWith({
-      'totalTime': totalTime,
-    });
+    _timer = _timer.copyWith({'totalTime': totalTime});
     // This happens on save, so no need to mark as edited.
     notifyListeners();
   }
@@ -88,19 +78,22 @@ class TimerCreationProvider extends ChangeNotifier {
     int? cooldownTime,
     int? getReadyTime,
     int? restarts,
+    int? skipWarmupRest,
   }) {
-    _timer.timeSettings = _timer.timeSettings.copyWith({}, updates: {
-      if (workTime != null) 'workTime': workTime,
-      if (restTime != null) 'restTime': restTime,
-      if (breakTime != null) 'breakTime': breakTime,
-      if (warmupTime != null) 'warmupTime': warmupTime,
-      if (cooldownTime != null) 'cooldownTime': cooldownTime,
-      if (getReadyTime != null) 'getReadyTime': getReadyTime,
-      if (restarts != null) 'restarts': restarts,
-    });
-    _timer = _timer.copyWith({
-      'timeSettings': _timer.timeSettings,
-    });
+    _timer.timeSettings = _timer.timeSettings.copyWith(
+      {},
+      updates: {
+        if (workTime != null) 'workTime': workTime,
+        if (restTime != null) 'restTime': restTime,
+        if (breakTime != null) 'breakTime': breakTime,
+        if (warmupTime != null) 'warmupTime': warmupTime,
+        if (cooldownTime != null) 'cooldownTime': cooldownTime,
+        if (getReadyTime != null) 'getReadyTime': getReadyTime,
+        if (restarts != null) 'restarts': restarts,
+        if (skipWarmupRest != null) 'skipWarmupRest': skipWarmupRest,
+      },
+    );
+    _timer = _timer.copyWith({'timeSettings': _timer.timeSettings});
     _isEdited = true;
     notifyListeners();
   }
@@ -113,17 +106,18 @@ class TimerCreationProvider extends ChangeNotifier {
     String? countdownSound,
     String? breakSound,
   }) {
-    _timer.soundSettings = _timer.soundSettings.copyWith({}, updates: {
-      if (workSound != null) 'workSound': workSound,
-      if (restSound != null) 'restSound': restSound,
-      if (halfwaySound != null) 'halfwaySound': halfwaySound,
-      if (endSound != null) 'endSound': endSound,
-      if (countdownSound != null) 'countdownSound': countdownSound,
-      if (breakSound != null) 'breakSound': breakSound,
-    });
-    _timer = _timer.copyWith({
-      'soundSettings': _timer.soundSettings,
-    });
+    _timer.soundSettings = _timer.soundSettings.copyWith(
+      {},
+      updates: {
+        if (workSound != null) 'workSound': workSound,
+        if (restSound != null) 'restSound': restSound,
+        if (halfwaySound != null) 'halfwaySound': halfwaySound,
+        if (endSound != null) 'endSound': endSound,
+        if (countdownSound != null) 'countdownSound': countdownSound,
+        if (breakSound != null) 'breakSound': breakSound,
+      },
+    );
+    _timer = _timer.copyWith({'soundSettings': _timer.soundSettings});
     _isEdited = true;
     notifyListeners();
   }

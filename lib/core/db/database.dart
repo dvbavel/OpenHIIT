@@ -6,7 +6,7 @@ import 'package:openhiit/core/db/tables.dart';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-int databaseVersion = 8; // Current database version
+int databaseVersion = 9; // Current database version
 
 class DatabaseManager {
   static const String _databaseName = "core1.db";
@@ -39,8 +39,9 @@ class DatabaseManager {
 
   Future<Database> initializeDatabase() async {
     String path = join(await getDatabasesPath(), _databaseName);
-    String dbPath =
-        (Platform.isWindows || Platform.isLinux) ? inMemoryDatabasePath : path;
+    String dbPath = (Platform.isWindows || Platform.isLinux)
+        ? inMemoryDatabasePath
+        : path;
 
     return openDatabase(
       dbPath,
@@ -59,7 +60,10 @@ class DatabaseManager {
 
   // Handle database upgrades
   Future<void> _handleUpgrade(
-      Database db, int oldVersion, int newVersion) async {
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
     await runMigrations(db, oldVersion, newVersion);
   }
 }

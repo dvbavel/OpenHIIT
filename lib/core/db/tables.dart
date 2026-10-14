@@ -4,7 +4,8 @@ const String timerTableName = "TimerTable";
 const String timeSettingsTableName = "TimeSettingsTable";
 const String soundSettingsTableName = "SoundSettingsTable";
 
-const createWorkoutTableQuery = '''
+const createWorkoutTableQuery =
+    '''
       CREATE TABLE IF NOT EXISTS $workoutTableName(
         id TEXT PRIMARY KEY,
         title TEXT,
@@ -30,7 +31,8 @@ const createWorkoutTableQuery = '''
       )
     ''';
 
-const createIntervalTableQuery = '''
+const createIntervalTableQuery =
+    '''
       CREATE TABLE IF NOT EXISTS $intervalTableName(
         id TEXT PRIMARY KEY,
         workoutId TEXT,
@@ -45,7 +47,8 @@ const createIntervalTableQuery = '''
       )
     ''';
 
-const createTimerTableQuery = '''
+const createTimerTableQuery =
+    '''
       CREATE TABLE IF NOT EXISTS $timerTableName(
         id TEXT PRIMARY KEY,
         name TEXT,
@@ -59,7 +62,8 @@ const createTimerTableQuery = '''
       )
     ''';
 
-const createTimeSettingsTableQuery = '''
+const createTimeSettingsTableQuery =
+    '''
       CREATE TABLE IF NOT EXISTS $timeSettingsTableName(
         id TEXT PRIMARY KEY,
         timerId TEXT,
@@ -69,11 +73,13 @@ const createTimeSettingsTableQuery = '''
         breakTime INTEGER,
         warmupTime INTEGER,
         cooldownTime INTEGER,
-        restarts INTEGER
+        restarts INTEGER,
+        skipWarmupRest INTEGER
       )
     ''';
 
-const createSoundSettingsTableQuery = '''
+const createSoundSettingsTableQuery =
+    '''
       CREATE TABLE IF NOT EXISTS $soundSettingsTableName(
         id TEXT PRIMARY KEY,
         timerId TEXT,

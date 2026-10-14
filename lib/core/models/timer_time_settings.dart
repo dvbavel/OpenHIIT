@@ -10,28 +10,32 @@ class TimerTimeSettings {
   int cooldownTime;
   int getReadyTime;
   int restarts;
+  int skipWarmupRest;
 
-  TimerTimeSettings(
-      {required this.id,
-      required this.timerId,
-      required this.workTime,
-      required this.restTime,
-      required this.breakTime,
-      required this.warmupTime,
-      required this.cooldownTime,
-      required this.getReadyTime,
-      required this.restarts});
+  TimerTimeSettings({
+    required this.id,
+    required this.timerId,
+    required this.workTime,
+    required this.restTime,
+    required this.breakTime,
+    required this.warmupTime,
+    required this.cooldownTime,
+    required this.getReadyTime,
+    required this.restarts,
+    this.skipWarmupRest = 0,
+  });
 
   TimerTimeSettings.empty()
-      : id = "",
-        timerId = "",
-        workTime = 0,
-        restTime = 0,
-        breakTime = 0,
-        warmupTime = 0,
-        cooldownTime = 0,
-        getReadyTime = 10,
-        restarts = 0;
+    : id = "",
+      timerId = "",
+      workTime = 0,
+      restTime = 0,
+      breakTime = 0,
+      warmupTime = 0,
+      cooldownTime = 0,
+      getReadyTime = 10,
+      restarts = 0,
+      skipWarmupRest = 0;
 
   TimerTimeSettings copyWith(
     Map<String, int> map, {
@@ -47,6 +51,7 @@ class TimerTimeSettings {
       cooldownTime: updates?['cooldownTime'] ?? cooldownTime,
       getReadyTime: updates?['getReadyTime'] ?? getReadyTime,
       restarts: updates?['restarts'] ?? restarts,
+      skipWarmupRest: updates?['skipWarmupRest'] ?? skipWarmupRest,
     );
   }
 
@@ -63,6 +68,7 @@ class TimerTimeSettings {
       cooldownTime: cooldownTime,
       getReadyTime: getReadyTime,
       restarts: restarts,
+      skipWarmupRest: skipWarmupRest,
     );
   }
 
@@ -77,19 +83,21 @@ class TimerTimeSettings {
       'cooldownTime': cooldownTime,
       'getReadyTime': getReadyTime,
       'restarts': restarts,
+      'skipWarmupRest': skipWarmupRest,
     };
   }
 
   TimerTimeSettings.fromMap(Map<String, dynamic> map)
-      : id = map['id'] ?? "",
-        timerId = map['timerId'] ?? "",
-        workTime = map['workTime'] ?? 0,
-        restTime = map['restTime'] ?? 0,
-        breakTime = map['breakTime'] ?? 0,
-        warmupTime = map['warmupTime'] ?? 0,
-        cooldownTime = map['cooldownTime'] ?? 0,
-        getReadyTime = map['getReadyTime'] ?? 0,
-        restarts = map['restarts'] ?? 0;
+    : id = map['id'] ?? "",
+      timerId = map['timerId'] ?? "",
+      workTime = map['workTime'] ?? 0,
+      restTime = map['restTime'] ?? 0,
+      breakTime = map['breakTime'] ?? 0,
+      warmupTime = map['warmupTime'] ?? 0,
+      cooldownTime = map['cooldownTime'] ?? 0,
+      getReadyTime = map['getReadyTime'] ?? 0,
+      restarts = map['restarts'] ?? 0,
+      skipWarmupRest = map['skipWarmupRest'] ?? 0;
 
   Map<String, dynamic> toJson() {
     return {
@@ -102,6 +110,7 @@ class TimerTimeSettings {
       'cooldownTime': cooldownTime,
       'getReadyTime': getReadyTime,
       'restarts': restarts,
+      'skipWarmupRest': skipWarmupRest,
     };
   }
 
@@ -116,11 +125,12 @@ class TimerTimeSettings {
       cooldownTime: json['cooldownTime'] ?? 0,
       getReadyTime: json['getReadyTime'] ?? 0,
       restarts: json['restarts'] ?? 0,
+      skipWarmupRest: json['skipWarmupRest'] ?? 0,
     );
   }
 
   @override
   String toString() {
-    return 'TimerTimeSettings{id: $id, timerId: $timerId, workTime: $workTime, restTime: $restTime, breakTime: $breakTime, warmupTime: $warmupTime, cooldownTime: $cooldownTime, getReadyTime: $getReadyTime, restarts: $restarts}';
+    return 'TimerTimeSettings{id: $id, timerId: $timerId, workTime: $workTime, restTime: $restTime, breakTime: $breakTime, warmupTime: $warmupTime, cooldownTime: $cooldownTime, getReadyTime: $getReadyTime, restarts: $restarts, skipWarmupRest: $skipWarmupRest}';
   }
 }
