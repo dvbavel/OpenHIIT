@@ -72,7 +72,7 @@ jobs:
           echo "Running test: ${{ matrix.test_file }}"
           bash scripts/wait_for_pm.sh
           adb -s emulator-5554 install build/app/outputs/flutter-apk/app-debug.apk
-          adb -s emulator-5554 shell appops set com.codepup.workout_timer SCHEDULE_EXACT_ALARM allow
+          adb -s emulator-5554 shell appops set com.codepup.workout_timer.dev SCHEDULE_EXACT_ALARM allow
           flutter drive -d emulator-5554 --no-pub \
             --driver=integration_test/driver.dart \
             --use-application-binary=build/app/outputs/flutter-apk/app-debug.apk
@@ -89,7 +89,9 @@ jobs:
       - name: Run integration tests
         uses: reactivecircus/android-emulator-runner@v2.38.0
         with:
-          api-level: 36
+          # Android 17 (API 37); the plain "default" image isn't published.
+          api-level: 37.0
+          target: google_apis
           arch: x86_64
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none

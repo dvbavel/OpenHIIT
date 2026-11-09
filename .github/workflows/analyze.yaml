@@ -46,3 +46,5 @@ jobs:
           else
             echo "No errors (warnings/info ignored)"
           fi
+      - name: Run unit tests
+        run: flutter test

@@ -22,6 +22,12 @@ void main() async {
         Permission.scheduleExactAlarm.request();
       }
     });
+
+    // Android 13+ hides the running timer's notification (and its controls)
+    // until the user allows notifications.
+    if (await Permission.notification.isDenied) {
+      await Permission.notification.request();
+    }
   }
 
   GoogleFonts.config.allowRuntimeFetching = false;
