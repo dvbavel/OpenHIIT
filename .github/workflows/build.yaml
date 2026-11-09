@@ -9,6 +9,11 @@ run-name: Checking and building OpenHIIT Dev
 #    the previous one
 # 3. the APK as artifact and, on main, at the rolling "dev-latest" release
 # APK and artifact are named openhiit-dev-<version>-<build number>.
+#
+# Tests and build retry only one known failure: the sqlite3 package
+# downloads prebuilt libraries from GitHub releases, which sometimes answer
+# "504 Gateway Time-out" for a few minutes; sqlite3 then reports a hash
+# mismatch ("Building native assets failed"). Other failures fail at once.
 
 on:
   workflow_dispatch:
@@ -60,7 +65,17 @@ jobs:
           fi
 
       - name: Unit tests
-        run: flutter test
+        run: |
+          for wait in 30 60 120 0; do
+            if flutter test 2>&1 | tee test.log; [ "${PIPESTATUS[0]}" -eq 0 ]; then
+              break
+            fi
+            if [ "$wait" -eq 0 ] || ! grep -q "Building native assets failed" test.log; then
+              exit 1
+            fi
+            echo "::warning::sqlite3 download failed, retrying in ${wait}s."
+            sleep "$wait"
+          done
 
       - name: Determine version
         id: version
@@ -126,21 +141,18 @@ jobs:
 
       - name: Build release APK
         run: |
-          # sqlite3 downloads a prebuilt library from GitHub releases during
-          # the build; that download occasionally returns the wrong content.
-          # Retry only that failure, any other build error fails right away.
-          for attempt in 1 2 3; do
+          for wait in 30 60 120 0; do
             if flutter build apk --release \
               --build-number=${{ steps.version.outputs.build_number }} \
               --build-name=${{ steps.version.outputs.version_name }} \
               2>&1 | tee build.log; [ "${PIPESTATUS[0]}" -eq 0 ]; then
               break
             fi
-            if [ "$attempt" -eq 3 ] || ! grep -q "Building native assets failed" build.log; then
+            if [ "$wait" -eq 0 ] || ! grep -q "Building native assets failed" build.log; then
               exit 1
             fi
-            echo "::warning::Native asset download failed (attempt $attempt), retrying."
-            sleep 20
+            echo "::warning::sqlite3 download failed, retrying in ${wait}s."
+            sleep "$wait"
           done
           cp build/app/outputs/flutter-apk/app-release.apk ${{ steps.version.outputs.name }}.apk
 
