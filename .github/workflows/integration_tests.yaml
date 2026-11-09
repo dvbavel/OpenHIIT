@@ -11,26 +11,23 @@ on:
       - 'lib/**'
       - 'test_driver/**'
       - 'integration_test/**'
+      - 'scripts/**'
       - 'pubspec.yaml'
       - 'pubspec.lock'
       - 'android/**'
-      - 'ios/**'
+      - '.github/workflows/integration_tests.yaml'
+
+# A new push makes the previous run of the same PR pointless.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  # One emulator for all tests instead of a separate job (Flutter setup,
+  # full build, emulator boot) per test file.
   run-tests:
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        test_file:
-          - simple_test.dart
-          - advanced_test.dart
-          - restart_rounds_test.dart
-          - load_test.dart
-          - interval_adjust_test.dart
-          - edit_timer_test.dart
-          - customize_test.dart
-          - minutes_view_test.dart
+    timeout-minutes: 60
     steps:
       - name: checkout
         uses: actions/checkout@v7
@@ -61,24 +58,11 @@ jobs:
           sudo rm -rf /usr/local/share/powershell # Remove PowerShell
           df -h .
 
-      - name: Build Debug APK
-        run: |
-          flutter build apk --target integration_test/${{ matrix.test_file }} --debug
+      - run: flutter pub get
 
-      - name: Create test script
-        run: |
-          cat <<EOF > scripts/test.sh
-          #!/bin/bash
-          echo "Running test: ${{ matrix.test_file }}"
-          bash scripts/wait_for_pm.sh
-          adb -s emulator-5554 install build/app/outputs/flutter-apk/app-debug.apk
-          adb -s emulator-5554 shell appops set com.codepup.workout_timer.dev SCHEDULE_EXACT_ALARM allow
-          flutter drive -d emulator-5554 --no-pub \
-            --driver=integration_test/driver.dart \
-            --use-application-binary=build/app/outputs/flutter-apk/app-debug.apk
-          EOF
-
-          chmod +x scripts/test.sh
+      # Warm up Gradle and catch build errors before the emulator boots.
+      - name: Build debug APK
+        run: flutter build apk --debug --target integration_test/simple_test.dart
 
       - name: Enable KVM
         run: |
@@ -86,21 +70,22 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run integration tests
+      - name: Run integration tests (Android 17 emulator)
         uses: reactivecircus/android-emulator-runner@v2.38.0
         with:
-          # Android 17 (API 37); the plain "default" image isn't published.
-          api-level: 37.0
+          # Quoted: unquoted YAML turns 37.0 into 37, and Android 17 is only
+          # published as the minor platform "android-37.0".
+          api-level: '37.0'
           target: google_apis
           arch: x86_64
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: scripts/test.sh
+          script: bash scripts/run_integration_tests.sh
 
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: screenshots-${{ matrix.test_file }}
+          name: screenshots
           path: screenshots/
