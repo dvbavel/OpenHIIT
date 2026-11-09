@@ -17,7 +17,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -28,18 +28,19 @@ jobs:
           check-latest: true
 
       - name: Checkout app code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - uses: subosito/flutter-action@v2
         with:
           channel: "stable"
+          flutter-version: "3.41.6"
           cache: true
 
       - run: flutter pub get
 
       - name: Download Android keystore
         id: android_keystore
-        uses: timheuer/base64-to-file@v1.2
+        uses: timheuer/base64-to-file@v2.0
         with:
           fileName: upload-keystore.jks
           encodedString: ${{ secrets.KEYSTORE_FILE_BASE64 }}
@@ -83,11 +84,12 @@ jobs:
         run: xcrun --sdk iphoneos --show-sdk-version
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - uses: subosito/flutter-action@v2
         with:
           channel: "stable"
+          flutter-version: "3.41.6"
           cache: true
 
       - run: flutter pub get
@@ -139,7 +141,7 @@ jobs:
     steps:
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Create release issue if not already created
         run: |
