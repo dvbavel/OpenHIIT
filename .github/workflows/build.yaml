@@ -1,11 +1,14 @@
-name: Android APK
+name: Build OpenHIIT Dev
 
-run-name: Building the OpenHIIT Dev APK
+run-name: Checking and building OpenHIIT Dev
 
-# Builds a signed release APK that installs over the previous one:
-# - always signed with the same key (from the KEYSTORE_* repository secrets)
-# - versionCode = 10000 + number of commits, so it only ever goes up
-# The latest APK is published at the rolling "dev-latest" release.
+# The only CI for this fork, in one job:
+# 1. flutter analyze + unit tests, so a broken change fails before building
+# 2. a release APK signed with the fixed key from the KEYSTORE_* secrets,
+#    with versionCode = 10000 + commit count, so every APK installs over
+#    the previous one
+# 3. the APK as artifact and, on main, at the rolling "dev-latest" release
+# APK and artifact are named openhiit-dev-<version>-<build number>.
 
 on:
   workflow_dispatch:
@@ -21,6 +24,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
 
@@ -44,6 +48,30 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
+      - run: flutter pub get
+
+      - name: Analyze (fail on errors only)
+        run: |
+          flutter analyze > analyze.log || true
+          cat analyze.log
+          if grep -q "error •" analyze.log; then
+            echo "::error::flutter analyze found errors"
+            exit 1
+          fi
+
+      - name: Unit tests
+        run: flutter test
+
+      - name: Determine version
+        id: version
+        run: |
+          BUILD_NUMBER=$((10000 + $(git rev-list --count HEAD)))
+          VERSION_NAME=$(grep -E '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "name=openhiit-dev-$VERSION_NAME-$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "Version $VERSION_NAME, versionCode $BUILD_NUMBER"
+
       - name: Set up signing key
         id: signing
         env:
@@ -58,8 +86,9 @@ jobs:
               echo "::error::Signing secrets are missing. Add KEYSTORE_FILE_BASE64, KEYSTORE_PASSWORD, KEYSTORE_KEY_PASSWORD and KEYSTORE_KEY_ALIAS under Settings > Secrets and variables > Actions. Without a fixed key every APK needs a reinstall."
               exit 1
             fi
-            # PR check only: prove the release build works; nothing is published.
-            echo "::warning::Signing secrets missing; signing this PR build with a throwaway key."
+            # PRs without access to the secrets (e.g. Dependabot): still prove
+            # the release build works, but don't hand out the APK.
+            echo "::warning::Signing secrets unavailable; signing this PR build with a throwaway key."
             echo "throwaway=true" >> "$GITHUB_OUTPUT"
             KEYSTORE_PASSWORD=throwaway KEYSTORE_KEY_PASSWORD=throwaway KEYSTORE_KEY_ALIAS=throwaway
             keytool -genkeypair -keystore "$RUNNER_TEMP/upload-keystore.jks" \
@@ -75,40 +104,29 @@ jobs:
             echo "keyAlias=$KEYSTORE_KEY_ALIAS"
           } > android/key.properties
 
-      - name: Determine version
-        id: version
-        run: |
-          BUILD_NUMBER=$((10000 + $(git rev-list --count HEAD)))
-          VERSION_NAME=$(grep -E '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
-          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
-          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
-          echo "Version $VERSION_NAME, versionCode $BUILD_NUMBER"
-
-      - run: flutter pub get
-
       - name: Build release APK
         run: |
           flutter build apk --release \
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version_name }}
-          cp build/app/outputs/flutter-apk/app-release.apk OpenHIIT-Dev.apk
+          cp build/app/outputs/flutter-apk/app-release.apk ${{ steps.version.outputs.name }}.apk
 
       - name: Upload APK artifact
-        # A throwaway-signed APK wouldn't install over the real one.
         if: steps.signing.outputs.throwaway != 'true'
         uses: actions/upload-artifact@v7
         with:
-          name: OpenHIIT-Dev-${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.build_number }}
-          path: OpenHIIT-Dev.apk
+          name: ${{ steps.version.outputs.name }}
+          path: ${{ steps.version.outputs.name }}.apk
+          if-no-files-found: error
 
       - name: Publish to the dev-latest release
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.signing.outputs.throwaway != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete dev-latest --cleanup-tag --yes || true
-          gh release create dev-latest OpenHIIT-Dev.apk \
+          gh release create dev-latest ${{ steps.version.outputs.name }}.apk \
             --prerelease \
             --target "$GITHUB_SHA" \
-            --title "OpenHIIT Dev ${{ steps.version.outputs.version_name }} (build ${{ steps.version.outputs.build_number }})" \
+            --title "${{ steps.version.outputs.name }}" \
             --notes "Latest build of main (${GITHUB_SHA::7}). Installs over the previous OpenHIIT Dev APK."
