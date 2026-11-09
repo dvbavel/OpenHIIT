@@ -8,7 +8,9 @@ class IntervalListTile extends StatelessWidget {
   final bool editing;
   final TextEditingController nameController;
   final ValueChanged<String>? onNameChanged; // callback for text changes
+  final VoidCallback? onTimeTap; // edit this interval's duration
   final String? formFieldKey;
+  final String? timeKey;
 
   IntervalListTile({
     super.key,
@@ -16,9 +18,49 @@ class IntervalListTile extends StatelessWidget {
     required this.backgroundColor,
     this.editing = false,
     this.onNameChanged,
+    this.onTimeTap,
     this.formFieldKey,
+    this.timeKey,
     TextEditingController? nameController,
   }) : nameController = nameController ?? TextEditingController();
+
+  Widget _buildTime(TextScaler textScaler) {
+    final time = Text(
+      intervalSecondsDisplay(interval.seconds, interval.showMinutes),
+      style: TextStyle(
+        fontSize: textScaler.scale(24),
+        color: Colors.white,
+        fontWeight: interval.customTime ? FontWeight.bold : FontWeight.normal,
+      ),
+    );
+
+    if (onTimeTap == null) return time;
+
+    return InkWell(
+      key: timeKey != null ? Key(timeKey!) : null,
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTimeTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(51, 0, 0, 0),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              interval.customTime ? Icons.timer : Icons.timer_outlined,
+              size: textScaler.scale(18),
+              color: Colors.white70,
+            ),
+            const SizedBox(width: 4),
+            time,
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,11 +124,7 @@ class IntervalListTile extends StatelessWidget {
                         fontSize: textScaler.scale(24), color: Colors.white),
                     overflow: TextOverflow.ellipsis,
                   ),
-            trailing: Text(
-              intervalSecondsDisplay(interval.seconds, interval.showMinutes),
-              style: TextStyle(
-                  fontSize: textScaler.scale(24), color: Colors.white),
-            ),
+            trailing: _buildTime(textScaler),
           ),
         ));
   }

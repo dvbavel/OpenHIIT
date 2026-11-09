@@ -58,7 +58,8 @@ const createTimerTableQuery =
         activeIntervals INTEGER,
         activities TEXT,
         showMinutes INTEGER,
-        color INTEGER
+        color INTEGER,
+        workTimes TEXT
       )
     ''';
 
