@@ -48,3 +48,11 @@ updates:
     labels:
       - "dependencies"
       - "android"
+    ignore:
+      # Gradle 9.6 removed an internal API that AGP 8.x uses, and AGP 9 needs
+      # the Flutter Gradle setup migrated first. Lift these when moving to
+      # AGP 9 deliberately.
+      - dependency-name: "gradle-wrapper"
+        versions: [">= 9.6"]
+      - dependency-name: "com.android.application"
+        versions: [">= 9.0"]
