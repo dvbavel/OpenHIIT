@@ -1,0 +1,114 @@
+name: Android APK
+
+run-name: Building the OpenHIIT Dev APK
+
+# Builds a signed release APK that installs over the previous one:
+# - always signed with the same key (from the KEYSTORE_* repository secrets)
+# - versionCode = 10000 + number of commits, so it only ever goes up
+# The latest APK is published at the rolling "dev-latest" release.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history for the commit count
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Cache Gradle
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Set up signing key
+        id: signing
+        env:
+          KEYSTORE_FILE_BASE64: ${{ secrets.KEYSTORE_FILE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+          KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_FILE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] \
+            || [ -z "$KEYSTORE_KEY_PASSWORD" ] || [ -z "$KEYSTORE_KEY_ALIAS" ]; then
+            if [ "${{ github.event_name }}" != "pull_request" ]; then
+              echo "::error::Signing secrets are missing. Add KEYSTORE_FILE_BASE64, KEYSTORE_PASSWORD, KEYSTORE_KEY_PASSWORD and KEYSTORE_KEY_ALIAS under Settings > Secrets and variables > Actions. Without a fixed key every APK needs a reinstall."
+              exit 1
+            fi
+            # PR check only: prove the release build works; nothing is published.
+            echo "::warning::Signing secrets missing; signing this PR build with a throwaway key."
+            echo "throwaway=true" >> "$GITHUB_OUTPUT"
+            KEYSTORE_PASSWORD=throwaway KEYSTORE_KEY_PASSWORD=throwaway KEYSTORE_KEY_ALIAS=throwaway
+            keytool -genkeypair -keystore "$RUNNER_TEMP/upload-keystore.jks" \
+              -storepass throwaway -keypass throwaway -alias throwaway \
+              -keyalg RSA -keysize 2048 -validity 1 -dname "CN=throwaway"
+          else
+            echo "$KEYSTORE_FILE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload-keystore.jks"
+          fi
+          {
+            echo "storeFile=$RUNNER_TEMP/upload-keystore.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyPassword=$KEYSTORE_KEY_PASSWORD"
+            echo "keyAlias=$KEYSTORE_KEY_ALIAS"
+          } > android/key.properties
+
+      - name: Determine version
+        id: version
+        run: |
+          BUILD_NUMBER=$((10000 + $(git rev-list --count HEAD)))
+          VERSION_NAME=$(grep -E '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "Version $VERSION_NAME, versionCode $BUILD_NUMBER"
+
+      - run: flutter pub get
+
+      - name: Build release APK
+        run: |
+          flutter build apk --release \
+            --build-number=${{ steps.version.outputs.build_number }} \
+            --build-name=${{ steps.version.outputs.version_name }}
+          cp build/app/outputs/flutter-apk/app-release.apk OpenHIIT-Dev.apk
+
+      - name: Upload APK artifact
+        # A throwaway-signed APK wouldn't install over the real one.
+        if: steps.signing.outputs.throwaway != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: OpenHIIT-Dev-${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.build_number }}
+          path: OpenHIIT-Dev.apk
+
+      - name: Publish to the dev-latest release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete dev-latest --cleanup-tag --yes || true
+          gh release create dev-latest OpenHIIT-Dev.apk \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "OpenHIIT Dev ${{ steps.version.outputs.version_name }} (build ${{ steps.version.outputs.build_number }})" \
+            --notes "Latest build of main (${GITHUB_SHA::7}). Installs over the previous OpenHIIT Dev APK."
