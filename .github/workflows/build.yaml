@@ -80,10 +80,10 @@ jobs:
           KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
           KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
         run: |
-          if [ -z "$KEYSTORE_FILE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] \
-            || [ -z "$KEYSTORE_KEY_PASSWORD" ] || [ -z "$KEYSTORE_KEY_ALIAS" ]; then
+          KEYSTORE="$RUNNER_TEMP/upload-keystore.jks"
+          if [ -z "$KEYSTORE_FILE_BASE64" ] && [ -z "$KEYSTORE_PASSWORD" ]; then
             if [ "${{ github.event_name }}" != "pull_request" ]; then
-              echo "::error::Signing secrets are missing. Add KEYSTORE_FILE_BASE64, KEYSTORE_PASSWORD, KEYSTORE_KEY_PASSWORD and KEYSTORE_KEY_ALIAS under Settings > Secrets and variables > Actions. Without a fixed key every APK needs a reinstall."
+              echo "::error::Signing secrets are missing. Add KEYSTORE_FILE_BASE64 and KEYSTORE_PASSWORD under Settings > Secrets and variables > Actions. Without a fixed key every APK needs a reinstall."
               exit 1
             fi
             # PRs without access to the secrets (e.g. Dependabot): still prove
@@ -91,11 +91,31 @@ jobs:
             echo "::warning::Signing secrets unavailable; signing this PR build with a throwaway key."
             echo "throwaway=true" >> "$GITHUB_OUTPUT"
             KEYSTORE_PASSWORD=throwaway KEYSTORE_KEY_PASSWORD=throwaway KEYSTORE_KEY_ALIAS=throwaway
-            keytool -genkeypair -keystore "$RUNNER_TEMP/upload-keystore.jks" \
+            keytool -genkeypair -keystore "$KEYSTORE" \
               -storepass throwaway -keypass throwaway -alias throwaway \
               -keyalg RSA -keysize 2048 -validity 1 -dname "CN=throwaway"
           else
-            echo "$KEYSTORE_FILE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload-keystore.jks"
+            # Half a configuration is a mistake: say exactly what's missing.
+            for secret in KEYSTORE_FILE_BASE64 KEYSTORE_PASSWORD; do
+              if [ -z "${!secret}" ]; then
+                echo "::error::Repository secret $secret is missing or empty."
+                exit 1
+              fi
+            done
+            echo "$KEYSTORE_FILE_BASE64" | base64 --decode > "$KEYSTORE"
+            # Optional: in a PKCS12 keystore the key password equals the store
+            # password, and the alias can be read from the keystore itself.
+            KEYSTORE_KEY_PASSWORD="${KEYSTORE_KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
+            if [ -z "$KEYSTORE_KEY_ALIAS" ]; then
+              KEYSTORE_KEY_ALIAS=$(keytool -list -keystore "$KEYSTORE" \
+                -storepass "$KEYSTORE_PASSWORD" 2>/dev/null \
+                | grep -m1 -i "PrivateKeyEntry" | cut -d, -f1)
+              if [ -z "$KEYSTORE_KEY_ALIAS" ]; then
+                echo "::error::Couldn't read the key alias from the keystore. Check KEYSTORE_FILE_BASE64 and KEYSTORE_PASSWORD, or set KEYSTORE_KEY_ALIAS."
+                exit 1
+              fi
+              echo "Using key alias '$KEYSTORE_KEY_ALIAS' from the keystore."
+            fi
           fi
           {
             echo "storeFile=$RUNNER_TEMP/upload-keystore.jks"
