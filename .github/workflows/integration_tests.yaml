@@ -70,13 +70,13 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run integration tests (Android 17 emulator)
+      - name: Run integration tests
         uses: reactivecircus/android-emulator-runner@v2.38.0
         with:
-          # Quoted: unquoted YAML turns 37.0 into 37, and Android 17 is only
-          # published as the minor platform "android-37.0".
-          api-level: '37.0'
-          target: google_apis
+          # Android 16 emulator: the Android 17 (37.0) images don't finish
+          # booting on GitHub runners within 10 minutes. The app itself is
+          # still built against and targets API 37.
+          api-level: 36
           arch: x86_64
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
