@@ -126,9 +126,22 @@ jobs:
 
       - name: Build release APK
         run: |
-          flutter build apk --release \
-            --build-number=${{ steps.version.outputs.build_number }} \
-            --build-name=${{ steps.version.outputs.version_name }}
+          # sqlite3 downloads a prebuilt library from GitHub releases during
+          # the build; that download occasionally returns the wrong content.
+          # Retry only that failure, any other build error fails right away.
+          for attempt in 1 2 3; do
+            if flutter build apk --release \
+              --build-number=${{ steps.version.outputs.build_number }} \
+              --build-name=${{ steps.version.outputs.version_name }} \
+              2>&1 | tee build.log; [ "${PIPESTATUS[0]}" -eq 0 ]; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ] || ! grep -q "Building native assets failed" build.log; then
+              exit 1
+            fi
+            echo "::warning::Native asset download failed (attempt $attempt), retrying."
+            sleep 20
+          done
           cp build/app/outputs/flutter-apk/app-release.apk ${{ steps.version.outputs.name }}.apk
 
       - name: Upload APK artifact
