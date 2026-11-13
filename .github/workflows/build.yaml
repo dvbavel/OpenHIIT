@@ -40,7 +40,11 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          # Pinned: a new Flutter stable can raise its Android requirements
+          # (3.50 needs Android Gradle Plugin 9.1.1+, this project uses 8.x).
+          # Bump deliberately together with the Android build setup.
           channel: stable
+          flutter-version: 3.47.9
           cache: true
 
       - name: Cache Gradle
