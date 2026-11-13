@@ -76,7 +76,7 @@ List<IntervalType> generateIntervalsFromTimer(
         name: timer.activities.isEmpty || i >= timer.activities.length
             ? "Work"
             : timer.activities[i],
-        time: timer.timeSettings.workTime,
+        time: timer.workTimeFor(i),
         startSound: timer.soundSettings.workSound,
         countdownSound: timer.soundSettings.countdownSound,
         halfwaySound: timer.soundSettings.halfwaySound,
@@ -149,6 +149,9 @@ Future<List<IntervalDisplayModel>> generateIntervalDisplaysForTimer(
       name: interval.name,
       seconds: interval.time,
       showMinutes: timer.showMinutes == 1,
+      customTime: isActive &&
+          timer.activeIntervals > 0 &&
+          timer.hasCustomWorkTime((activeIndex - 1) % timer.activeIntervals),
     );
   }).toList();
 }

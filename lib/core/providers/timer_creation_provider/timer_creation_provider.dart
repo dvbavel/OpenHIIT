@@ -64,6 +64,23 @@ class TimerCreationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Sets the duration of work interval [index]; 0 resets it to the default
+  /// work time.
+  void setWorkTimeOverride(int index, int seconds) {
+    final workTimes = List<int>.from(_timer.workTimes);
+    while (workTimes.length <= index) {
+      workTimes.add(0);
+    }
+    workTimes[index] = seconds < 0 ? 0 : seconds;
+    // Drop trailing defaults so timers without overrides store an empty list.
+    while (workTimes.isNotEmpty && workTimes.last == 0) {
+      workTimes.removeLast();
+    }
+    _timer = _timer.copyWith({'workTimes': workTimes});
+    _isEdited = true;
+    notifyListeners();
+  }
+
   void setTotalTime(int totalTime) {
     _timer = _timer.copyWith({'totalTime': totalTime});
     // This happens on save, so no need to mark as edited.

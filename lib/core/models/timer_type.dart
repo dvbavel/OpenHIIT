@@ -12,6 +12,9 @@ class TimerType {
   int intervals;
   int activeIntervals;
   List<String> activities;
+  // Per work interval override in seconds; 0 (or missing) means use
+  // timeSettings.workTime.
+  List<int> workTimes;
   int showMinutes;
   int color;
   TimerTimeSettings timeSettings;
@@ -27,6 +30,7 @@ class TimerType {
     this.intervals = 0,
     this.activeIntervals = 0,
     this.activities = const [],
+    this.workTimes = const [],
     this.showMinutes = 0,
     this.color = 4280391411, // blue
   });
@@ -41,6 +45,7 @@ class TimerType {
         intervals = 0,
         activeIntervals = 0,
         activities = [],
+        workTimes = [],
         showMinutes = 0,
         color = 4280391411; // blue
 
@@ -55,6 +60,7 @@ class TimerType {
       intervals: intervals,
       activeIntervals: activeIntervals,
       activities: activities,
+      workTimes: workTimes,
       showMinutes: showMinutes,
       color: color,
     );
@@ -73,10 +79,22 @@ class TimerType {
       intervals: intervals,
       activeIntervals: activeIntervals,
       activities: activities,
+      workTimes: workTimes,
       showMinutes: showMinutes,
       color: color,
     );
   }
+
+  /// Duration of the work interval at [index] (0-based within one round).
+  int workTimeFor(int index) {
+    if (index >= 0 && index < workTimes.length && workTimes[index] > 0) {
+      return workTimes[index];
+    }
+    return timeSettings.workTime;
+  }
+
+  bool hasCustomWorkTime(int index) =>
+      index >= 0 && index < workTimes.length && workTimes[index] > 0;
 
   Map<String, dynamic> toMap() {
     return {
@@ -87,6 +105,7 @@ class TimerType {
       'intervals': intervals,
       'activeIntervals': activeIntervals,
       'activities': jsonEncode(activities),
+      'workTimes': jsonEncode(workTimes),
       'showMinutes': showMinutes,
       'color': color,
     };
@@ -103,6 +122,9 @@ class TimerType {
         activeIntervals = map['activeIntervals'] ?? 0,
         activities = map['activities'] != null
             ? List<String>.from(jsonDecode(map['activities']))
+            : [],
+        workTimes = map['workTimes'] != null
+            ? List<int>.from(jsonDecode(map['workTimes']))
             : [],
         showMinutes = map['showMinutes'] ?? 0,
         color = map['color'] ?? 4280391411;
@@ -126,6 +148,7 @@ class TimerType {
       intervals: updates['intervals'] ?? intervals,
       activeIntervals: updates['activeIntervals'] ?? activeIntervals,
       activities: updates['activities'] ?? activities,
+      workTimes: updates['workTimes'] ?? workTimes,
       showMinutes: updates['showMinutes'] ?? showMinutes,
       color: updates['color'] ?? color,
     );
@@ -140,6 +163,7 @@ class TimerType {
       'intervals': intervals,
       'activeIntervals': activeIntervals,
       'activities': activities,
+      'workTimes': workTimes,
       'showMinutes': showMinutes,
       'color': color,
       'timeSettings': timeSettings.toJson(),
@@ -161,6 +185,9 @@ class TimerType {
       activities: (json['activities'] != null && json['activities'] is List)
           ? List<String>.from(json['activities'])
           : [],
+      workTimes: (json['workTimes'] != null && json['workTimes'] is List)
+          ? List<int>.from(json['workTimes'])
+          : [],
       showMinutes: json['showMinutes'] ?? 0,
       color: json['color'] ?? 4280391411,
       timeSettings: timeSettings is String
@@ -176,6 +203,6 @@ class TimerType {
 
   @override
   String toString() {
-    return 'TimerType{id: $id, name: $name, totalTime: $totalTime, intervals: $intervals, showMinutes: $showMinutes, activeIntervals: $activeIntervals, activities: $activities, color: $color, timerIndex: $timerIndex}';
+    return 'TimerType{id: $id, name: $name, totalTime: $totalTime, intervals: $intervals, showMinutes: $showMinutes, activeIntervals: $activeIntervals, activities: $activities, workTimes: $workTimes, color: $color, timerIndex: $timerIndex}';
   }
 }

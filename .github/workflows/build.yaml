@@ -1,0 +1,177 @@
+name: Build OpenHIIT Dev
+
+run-name: Checking and building OpenHIIT Dev
+
+# The only CI for this fork, in one job:
+# 1. flutter analyze + unit tests, so a broken change fails before building
+# 2. a release APK signed with the fixed key from the KEYSTORE_* secrets,
+#    with versionCode = 10000 + commit count, so every APK installs over
+#    the previous one
+# 3. the APK as artifact and, on main, at the rolling "dev-latest" release
+# APK and artifact are named openhiit-dev-<version>-<build number>.
+#
+# Tests and build retry only one known failure: the sqlite3 package
+# downloads prebuilt libraries from GitHub releases, which sometimes answer
+# "504 Gateway Time-out" for a few minutes; sqlite3 then reports a hash
+# mismatch ("Building native assets failed"). Other failures fail at once.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history for the commit count
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Cache Gradle
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - run: flutter pub get
+
+      - name: Analyze (fail on errors only)
+        run: |
+          flutter analyze > analyze.log || true
+          cat analyze.log
+          if grep -q "error •" analyze.log; then
+            echo "::error::flutter analyze found errors"
+            exit 1
+          fi
+
+      - name: Unit tests
+        run: |
+          for wait in 30 60 120 0; do
+            if flutter test 2>&1 | tee test.log; [ "${PIPESTATUS[0]}" -eq 0 ]; then
+              break
+            fi
+            if [ "$wait" -eq 0 ] || ! grep -q "Building native assets failed" test.log; then
+              exit 1
+            fi
+            echo "::warning::sqlite3 download failed, retrying in ${wait}s."
+            sleep "$wait"
+          done
+
+      - name: Determine version
+        id: version
+        run: |
+          BUILD_NUMBER=$((10000 + $(git rev-list --count HEAD)))
+          VERSION_NAME=$(grep -E '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "name=openhiit-dev-$VERSION_NAME-$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "Version $VERSION_NAME, versionCode $BUILD_NUMBER"
+
+      - name: Set up signing key
+        id: signing
+        env:
+          KEYSTORE_FILE_BASE64: ${{ secrets.KEYSTORE_FILE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+          KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
+        run: |
+          KEYSTORE="$RUNNER_TEMP/upload-keystore.jks"
+          if [ -z "$KEYSTORE_FILE_BASE64" ] && [ -z "$KEYSTORE_PASSWORD" ]; then
+            if [ "${{ github.event_name }}" != "pull_request" ]; then
+              echo "::error::Signing secrets are missing. Add KEYSTORE_FILE_BASE64 and KEYSTORE_PASSWORD under Settings > Secrets and variables > Actions. Without a fixed key every APK needs a reinstall."
+              exit 1
+            fi
+            # PRs without access to the secrets (e.g. Dependabot): still prove
+            # the release build works, but don't hand out the APK.
+            echo "::warning::Signing secrets unavailable; signing this PR build with a throwaway key."
+            echo "throwaway=true" >> "$GITHUB_OUTPUT"
+            KEYSTORE_PASSWORD=throwaway KEYSTORE_KEY_PASSWORD=throwaway KEYSTORE_KEY_ALIAS=throwaway
+            keytool -genkeypair -keystore "$KEYSTORE" \
+              -storepass throwaway -keypass throwaway -alias throwaway \
+              -keyalg RSA -keysize 2048 -validity 1 -dname "CN=throwaway"
+          else
+            # Half a configuration is a mistake: say exactly what's missing.
+            for secret in KEYSTORE_FILE_BASE64 KEYSTORE_PASSWORD; do
+              if [ -z "${!secret}" ]; then
+                echo "::error::Repository secret $secret is missing or empty."
+                exit 1
+              fi
+            done
+            echo "$KEYSTORE_FILE_BASE64" | base64 --decode > "$KEYSTORE"
+            # Optional: in a PKCS12 keystore the key password equals the store
+            # password, and the alias can be read from the keystore itself.
+            KEYSTORE_KEY_PASSWORD="${KEYSTORE_KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
+            if [ -z "$KEYSTORE_KEY_ALIAS" ]; then
+              KEYSTORE_KEY_ALIAS=$(keytool -list -keystore "$KEYSTORE" \
+                -storepass "$KEYSTORE_PASSWORD" 2>/dev/null \
+                | grep -m1 -i "PrivateKeyEntry" | cut -d, -f1)
+              if [ -z "$KEYSTORE_KEY_ALIAS" ]; then
+                echo "::error::Couldn't read the key alias from the keystore. Check KEYSTORE_FILE_BASE64 and KEYSTORE_PASSWORD, or set KEYSTORE_KEY_ALIAS."
+                exit 1
+              fi
+              echo "Using key alias '$KEYSTORE_KEY_ALIAS' from the keystore."
+            fi
+          fi
+          {
+            echo "storeFile=$RUNNER_TEMP/upload-keystore.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyPassword=$KEYSTORE_KEY_PASSWORD"
+            echo "keyAlias=$KEYSTORE_KEY_ALIAS"
+          } > android/key.properties
+
+      - name: Build release APK
+        run: |
+          for wait in 30 60 120 0; do
+            if flutter build apk --release \
+              --build-number=${{ steps.version.outputs.build_number }} \
+              --build-name=${{ steps.version.outputs.version_name }} \
+              2>&1 | tee build.log; [ "${PIPESTATUS[0]}" -eq 0 ]; then
+              break
+            fi
+            if [ "$wait" -eq 0 ] || ! grep -q "Building native assets failed" build.log; then
+              exit 1
+            fi
+            echo "::warning::sqlite3 download failed, retrying in ${wait}s."
+            sleep "$wait"
+          done
+          cp build/app/outputs/flutter-apk/app-release.apk ${{ steps.version.outputs.name }}.apk
+
+      - name: Upload APK artifact
+        if: steps.signing.outputs.throwaway != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.version.outputs.name }}
+          path: ${{ steps.version.outputs.name }}.apk
+          if-no-files-found: error
+
+      - name: Publish to the dev-latest release
+        if: github.ref == 'refs/heads/main' && steps.signing.outputs.throwaway != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete dev-latest --cleanup-tag --yes || true
+          gh release create dev-latest ${{ steps.version.outputs.name }}.apk \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "${{ steps.version.outputs.name }}" \
+            --notes "Latest build of main (${GITHUB_SHA::7}). Installs over the previous OpenHIIT Dev APK."

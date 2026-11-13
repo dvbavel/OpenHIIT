@@ -4,6 +4,7 @@ import 'package:openhiit/core/providers/timer_creation_provider/timer_creation_p
 import 'package:openhiit/core/utils/interval_calculation.dart';
 import 'package:openhiit/features/edit_timer/ui/widgets/start_save_toggle.dart';
 import 'package:openhiit/features/edit_timer/ui/widgets/tabs/editor_tab/widgets/interval_list_tile.dart';
+import 'package:openhiit/features/edit_timer/ui/widgets/tabs/editor_tab/widgets/work_time_dialog.dart';
 import 'package:provider/provider.dart';
 
 class EditorTab extends StatelessWidget {
@@ -67,6 +68,24 @@ class EditorTab extends StatelessWidget {
                 editing: true,
                 nameController: interval.activeIndex != 0
                     ? controllers[interval.activeIndex - 1]
+                    : null,
+                timeKey: 'activity-time-${interval.activeIndex - 1}',
+                onTimeTap: interval.activeIndex != 0
+                    ? () async {
+                        final workIndex = interval.activeIndex - 1;
+                        final seconds = await showWorkTimeDialog(
+                          context,
+                          intervalName: interval.name,
+                          currentSeconds: interval.seconds,
+                          defaultSeconds:
+                              provider.timer.timeSettings.workTime,
+                          showMinutes: interval.showMinutes,
+                          isCustom: interval.customTime,
+                        );
+                        if (seconds == null) return;
+                        provider.setWorkTimeOverride(workIndex, seconds);
+                        setButtonState(StartSaveState.save);
+                      }
                     : null,
                 onNameChanged: interval.activeIndex != 0
                     ? (newName) {

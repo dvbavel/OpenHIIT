@@ -30,7 +30,8 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace 'com.codepup.workout_timer'
-    compileSdkVersion flutter.compileSdkVersion
+    // Android 17 (API 37). Set explicitly: Flutter still defaults to 36.
+    compileSdkVersion "android-37.0"
     ndkVersion flutter.ndkVersion
 
     compileOptions {
@@ -52,7 +53,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
         minSdkVersion flutter.minSdkVersion
-        targetSdkVersion flutter.targetSdkVersion
+        targetSdkVersion 37
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
         multiDexEnabled true

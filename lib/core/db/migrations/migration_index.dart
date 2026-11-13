@@ -13,4 +13,5 @@ final Map<int, Future<void> Function(Database db)> migrations = {
   7: migration7,
   8: migration8,
   9: migration9,
+  10: migration10,
 };
